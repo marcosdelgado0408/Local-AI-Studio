@@ -1,31 +1,63 @@
-# Local AI Studio
+<div align="center">
+  <h1>Local AI Studio</h1>
+  <p><strong>Privacy-first, offline-capable iOS app for running LLMs locally with MLX Swift.</strong></p>
 
-A native iOS app to download and run AI models locally with MLX Swift, focused on privacy, offline usage, and modular architecture.
+  <p>
+    <img alt="platform" src="https://img.shields.io/badge/platform-iOS-black?style=for-the-badge" />
+    <img alt="language" src="https://img.shields.io/badge/language-Swift-orange?style=for-the-badge" />
+    <img alt="ui" src="https://img.shields.io/badge/UI-UIKit-1f6feb?style=for-the-badge" />
+    <img alt="license" src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" />
+  </p>
+</div>
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Highlights](#highlights)
+- [Features](#features)
+- [Current Seeded Models](#current-seeded-models)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Important Notes](#important-notes)
+- [Folder Structure](#folder-structure)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Overview
 
-**Local AI Studio** lets you chat with LLMs directly on-device, without requiring a backend for inference.
+**Local AI Studio** lets you run and chat with LLMs directly on-device.
+No inference backend required.
 
-- Local inference with `MLX`, `MLXLLM`, and `MLXLMCommon`
-- In-app model download and activation flow
-- Chat with persistent history and multiple sessions
-- Generation controls (temperature, top-p, max tokens, context length)
+| Why this project | What it provides |
+| --- | --- |
+| Privacy by design | Local model execution |
+| Offline-first UX | Persistent chat sessions |
+| Native performance | MLX-based iOS pipeline |
+| Modular codebase | Clear clean-architecture layers |
+
+## Highlights
+
+- On-device inference with `MLX`, `MLXLLM`, and `MLXLMCommon`
+- In-app model lifecycle: download, install, activate, remove
+- Streaming chat responses with persistent history
+- Tunable generation settings: temperature, top-p, max tokens, context
 
 ## Features
 
-- Onboarding flow with an offline-first value proposition
+- Offline-first onboarding flow
 - Local chat with streaming responses
-- Multiple chat sessions
-- Pin, rename, and delete sessions
+- Multi-session chat management
+- Pin, rename, and delete chat sessions
 - Model catalog with status:
   - not downloaded
   - downloading
   - installed
   - active
-- Download and remove models
-- Active model selection
+- Active model selection and removal
 - Settings screen with:
-  - generation parameter controls
+  - generation controls
   - chat history cleanup
   - local storage usage overview
 
@@ -39,7 +71,7 @@ A native iOS app to download and run AI models locally with MLX Swift, focused o
 - `Swift` + `UIKit` (no Storyboard)
 - `async/await` + async streams
 - Local persistence via files and `UserDefaults`
-- Local ML via:
+- ML runtime via:
   - [`mlx-swift`](https://github.com/ml-explore/mlx-swift)
   - [`mlx-swift-lm`](https://github.com/ml-explore/mlx-swift-lm)
 
@@ -54,38 +86,38 @@ The project follows a clean, modular structure:
 - `InferenceEngine/` inference engine and MLX adapters
 - `Core/` design system, utilities, and shared kernel
 
-## Running the App
+## Quick Start
 
 ### Requirements
 
 - macOS with Xcode installed
-- An Apple device compatible with local inference (physical device recommended)
+- Apple device compatible with local inference (physical device recommended)
 - Internet connection to fetch Swift Package dependencies and model assets
 
-### Steps
+### Run
 
 1. Clone the repository:
 
 ```bash
-git clone <URL_DO_SEU_REPOSITORIO>
-cd "<NOME_DO_REPOSITORIO>"
+git clone <YOUR_REPOSITORY_URL>
+cd "<YOUR_REPOSITORY_NAME>"
 ```
 
-2. Open the project in Xcode:
+2. Open in Xcode:
 
 ```bash
 open local_ai.xcodeproj
 ```
 
-3. Let Xcode resolve the Swift Package dependencies.
-4. Select a **physical device** and run (`Cmd + R`).
-5. In the app, open **Models**, download a model, and activate it.
+3. Let Xcode resolve Swift Package dependencies.
+4. Select a physical iOS device and run (`Cmd + R`).
+5. Open **Models**, download a model, and activate it.
 6. Open **Chat** and send your first message.
 
 ## Important Notes
 
 - On Simulator, model download/inference is blocked with an unsupported environment error.
-- The current project target is set to `IPHONEOS_DEPLOYMENT_TARGET = 26.2`.
+- Current project target: `IPHONEOS_DEPLOYMENT_TARGET = 26.2`.
 - Model files and metadata are stored locally in the app sandbox.
 
 ## Folder Structure
@@ -100,16 +132,16 @@ local_ai/
 └── InferenceEngine/
 ```
 
-## Suggested Roadmap
+## Roadmap
 
-- Remote model manifest support (already scaffolded in code)
-- More model options and device compatibility heuristics
-- Better download UX (advanced pause/resume)
-- Chat history export/import
+- [ ] Remote model manifest support (already scaffolded in code)
+- [ ] More model options and device compatibility heuristics
+- [ ] Better download UX (advanced pause/resume)
+- [ ] Chat history export/import
 
 ## Contributing
 
-PRs are welcome. Suggested flow:
+PRs are welcome. Suggested workflow:
 
 1. Create a branch `codex/<feature-name>`
 2. Make small, descriptive commits
