@@ -101,7 +101,7 @@ final class MessageTableViewCell: UITableViewCell {
             bubbleView.layer.shadowOffset = .zero
 
             messageLabel.attributedText = formattedMessage(
-                message.content,
+                renderedContent(for: message),
                 color: UIColor.white.withAlphaComponent(0.95)
             )
 
@@ -118,7 +118,7 @@ final class MessageTableViewCell: UITableViewCell {
             bubbleView.layer.shadowOpacity = 0
 
             messageLabel.attributedText = formattedMessage(
-                message.content,
+                renderedContent(for: message),
                 color: UIColor.white.withAlphaComponent(0.90)
             )
 
@@ -181,6 +181,18 @@ final class MessageTableViewCell: UITableViewCell {
         paragraphStyle.lineSpacing = 2
         mutable.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: mutable.length))
         return mutable
+    }
+
+    private func renderedContent(for message: Message) -> String {
+        guard !message.attachments.isEmpty else { return message.content }
+        let attachmentLines = message.attachments.map { attachment in
+            let kindText = attachment.kind == .image ? "Image" : "Document"
+            return "[\(kindText)] \(attachment.fileName)"
+        }
+        if message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return attachmentLines.joined(separator: "\n")
+        }
+        return attachmentLines.joined(separator: "\n") + "\n\n" + message.content
     }
 
     private func applyInlineMarkdown(to attributed: NSMutableAttributedString, color: UIColor, fallbackFont: UIFont) {

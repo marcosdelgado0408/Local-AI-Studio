@@ -102,27 +102,33 @@ final class ChatViewModel {
         }
 
         activeModelDisplayName = model.displayName
-        if activeModelID != model.id {
-            try? await inferenceRepository.loadModel(model)
-            activeModelID = model.id
+        do {
+            try await inferenceRepository.loadModel(model)
+        } catch {
+            onError?("Failed to load active model. Please re-download it from Models.")
+            return
         }
+        activeModelID = model.id
     }
 
-    func sendMessage(_ content: String) {
+    func sendMessage(_ content: String, attachments: [MessageAttachment] = []) {
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty || !attachments.isEmpty else { return }
         guard let activeSessionID else {
             onError?("Could not create chat session.")
             return
         }
+        let displayContent = trimmed.isEmpty ? "Sent \(attachments.count) attachment(s)." : trimmed
+        let modelPrompt = trimmed.isEmpty ? "Analyze the attached file(s) in detail." : trimmed
 
         // Render user prompt immediately.
         let userMessage = Message(
             id: UUID(),
             sessionID: activeSessionID,
             role: .user,
-            content: trimmed,
-            createdAt: Date()
+            content: displayContent,
+            createdAt: Date(),
+            attachments: attachments
         )
         messages.append(userMessage)
         Task { try? await saveMessageUseCase.execute(userMessage) }
@@ -157,7 +163,7 @@ final class ChatViewModel {
 
             do {
                 var receivedAnyToken = false
-                for try await token in streamResponseUseCase.execute(prompt: trimmed, config: generationConfig) {
+                for try await token in streamResponseUseCase.execute(prompt: modelPrompt, attachments: attachments, config: generationConfig) {
                     let next = receivedAnyToken ? assistantMessage.content + token : token
                     assistantMessage = Message(
                         id: assistantMessage.id,
@@ -171,7 +177,7 @@ final class ChatViewModel {
                 }
 
                 if !receivedAnyToken {
-                    let fallback = try await sendMessageUseCase.execute(prompt: trimmed, config: generationConfig)
+                    let fallback = try await sendMessageUseCase.execute(prompt: modelPrompt, attachments: attachments, config: generationConfig)
                     assistantMessage = Message(
                         id: assistantMessage.id,
                         sessionID: assistantMessage.sessionID,
@@ -183,7 +189,7 @@ final class ChatViewModel {
                 }
 
                 try? await saveMessageUseCase.execute(assistantMessage)
-                await updateSessionMetadataAfterMessage(prompt: trimmed)
+                await updateSessionMetadataAfterMessage(prompt: displayContent)
             } catch {
                 let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                 onError?("Failed to generate response.\n\(reason)")

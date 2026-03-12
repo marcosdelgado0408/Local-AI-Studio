@@ -1,6 +1,5 @@
-    import Foundation
+import Foundation
 import MLX
-import MLXLLM
 import MLXLMCommon
 
 final class ModelDownloadClient {
@@ -16,7 +15,7 @@ final class ModelDownloadClient {
         let configuration = modelConfiguration(for: model.id)
         Memory.cacheLimit = 20 * 1024 * 1024
         onProgress(0.05)
-        _ = try await LLMModelFactory.shared.loadContainer(configuration: configuration) { progress in
+        _ = try await loadModelContainer(configuration: configuration) { progress in
             onProgress(max(0.05, min(0.95, progress.fractionCompleted)))
         }
 

@@ -10,6 +10,7 @@
 		A1B2C3D42F70000100E8D56D /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D32F70000100E8D56D /* MLX */; };
 		B1C2D3E52F70000100E8D56D /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = B1C2D3E32F70000100E8D56D /* MLXLLM */; };
 		B1C2D3E62F70000100E8D56D /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = B1C2D3E42F70000100E8D56D /* MLXLMCommon */; };
+		B1C2D3E92F70000100E8D56D /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = B1C2D3E82F70000100E8D56D /* MLXVLM */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 				A1B2C3D42F70000100E8D56D /* MLX in Frameworks */,
 				B1C2D3E52F70000100E8D56D /* MLXLLM in Frameworks */,
 				B1C2D3E62F70000100E8D56D /* MLXLMCommon in Frameworks */,
+				B1C2D3E92F70000100E8D56D /* MLXVLM in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -77,6 +79,7 @@
 				A1B2C3D32F70000100E8D56D /* MLX */,
 				B1C2D3E32F70000100E8D56D /* MLXLLM */,
 				B1C2D3E42F70000100E8D56D /* MLXLMCommon */,
+				B1C2D3E82F70000100E8D56D /* MLXVLM */,
 			);
 			productName = local_ai;
 			productReference = 8D58ADF12F62667D00E8D56D /* local_ai.app */;
@@ -272,6 +275,8 @@
 				DEVELOPMENT_TEAM = H6944H4864;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Use camera to attach photos in chat.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Use photo library to attach images in chat.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -304,6 +309,8 @@
 				DEVELOPMENT_TEAM = H6944H4864;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Use camera to attach photos in chat.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Use photo library to attach images in chat.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -383,6 +390,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B1C2D3E22F70000100E8D56D /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
 			productName = MLXLMCommon;
+		};
+		B1C2D3E82F70000100E8D56D /* MLXVLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1C2D3E22F70000100E8D56D /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXVLM;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

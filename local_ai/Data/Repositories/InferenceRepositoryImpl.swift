@@ -18,14 +18,14 @@ final class InferenceRepositoryImpl: InferenceRepository {
         await engine.unloadModel()
     }
 
-    func generate(prompt: String, config: GenerationConfig) async throws -> String {
+    func generate(prompt: String, attachments: [MessageAttachment], config: GenerationConfig) async throws -> String {
         let mlxConfig = MLXAdapter.mapGenerationConfig(config)
-        return try await engine.generate(prompt: prompt, config: mlxConfig)
+        return try await engine.generate(prompt: prompt, attachments: attachments, config: mlxConfig)
     }
 
-    func stream(prompt: String, config: GenerationConfig) -> AsyncThrowingStream<String, Error> {
+    func stream(prompt: String, attachments: [MessageAttachment], config: GenerationConfig) -> AsyncThrowingStream<String, Error> {
         let mlxConfig = MLXAdapter.mapGenerationConfig(config)
-        return engine.stream(prompt: prompt, config: mlxConfig)
+        return engine.stream(prompt: prompt, attachments: attachments, config: mlxConfig)
     }
 
     func stopGeneration() async {

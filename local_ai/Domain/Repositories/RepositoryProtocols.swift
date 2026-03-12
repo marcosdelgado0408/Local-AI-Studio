@@ -30,8 +30,8 @@ protocol DownloadRepository {
 protocol InferenceRepository {
     func loadModel(_ model: LocalModel) async throws
     func unloadModel() async
-    func generate(prompt: String, config: GenerationConfig) async throws -> String
-    func stream(prompt: String, config: GenerationConfig) -> AsyncThrowingStream<String, Error>
+    func generate(prompt: String, attachments: [MessageAttachment], config: GenerationConfig) async throws -> String
+    func stream(prompt: String, attachments: [MessageAttachment], config: GenerationConfig) -> AsyncThrowingStream<String, Error>
     func stopGeneration() async
 }
 

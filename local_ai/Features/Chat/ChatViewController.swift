@@ -1,4 +1,7 @@
 import UIKit
+import PhotosUI
+import UniformTypeIdentifiers
+import PDFKit
 
 final class ChatViewController: UIViewController {
     private let viewModel: ChatViewModel
@@ -15,6 +18,8 @@ final class ChatViewController: UIViewController {
 
     private let metricsLabel = UILabel()
     private let inputContainer = UIView()
+    private let attachmentsPreviewScrollView = UIScrollView()
+    private let attachmentsPreviewStackView = UIStackView()
     private let addButton = UIButton(type: .system)
     private let textField = UITextField()
     private let sendButton = UIButton(type: .system)
@@ -27,6 +32,16 @@ final class ChatViewController: UIViewController {
     private var sidePanelLeadingConstraint: NSLayoutConstraint?
     private var isSidePanelOpen = false
     private var shouldAutoScrollToBottom = true
+    private var currentModelName: String
+    private var pendingAttachments: [MessageAttachment] = [] {
+        didSet {
+            updateMetricsLabel()
+            refreshAttachmentPreviews()
+            updateComposerLayout()
+        }
+    }
+    private var inputContainerHeightConstraint: NSLayoutConstraint?
+    private var attachmentsPreviewHeightConstraint: NSLayoutConstraint?
     private lazy var dismissKeyboardTapGesture: UITapGestureRecognizer = {
         let gesture = UITapGestureRecognizer(target: self, action: #selector(didTapOutsideInput))
         gesture.cancelsTouchesInView = false
@@ -36,6 +51,7 @@ final class ChatViewController: UIViewController {
 
     init(viewModel: ChatViewModel) {
         self.viewModel = viewModel
+        self.currentModelName = viewModel.activeModelDisplayName
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -135,11 +151,11 @@ final class ChatViewController: UIViewController {
     }
 
     private func configureInput() {
-        metricsLabel.text = "• Local • \(viewModel.activeModelDisplayName)"
         metricsLabel.font = UIFont.systemFont(ofSize: 12, weight: .medium)
         metricsLabel.textColor = UIColor.white.withAlphaComponent(0.58)
         metricsLabel.textAlignment = .center
         metricsLabel.translatesAutoresizingMaskIntoConstraints = false
+        updateMetricsLabel()
 
         inputContainer.backgroundColor = UIColor(red: 0.06, green: 0.08, blue: 0.14, alpha: 0.95)
         inputContainer.layer.cornerRadius = 20
@@ -147,10 +163,21 @@ final class ChatViewController: UIViewController {
         inputContainer.layer.borderColor = UIColor.white.withAlphaComponent(0.10).cgColor
         inputContainer.translatesAutoresizingMaskIntoConstraints = false
 
+        attachmentsPreviewScrollView.showsHorizontalScrollIndicator = false
+        attachmentsPreviewScrollView.backgroundColor = .clear
+        attachmentsPreviewScrollView.translatesAutoresizingMaskIntoConstraints = false
+        attachmentsPreviewScrollView.isHidden = true
+
+        attachmentsPreviewStackView.axis = .horizontal
+        attachmentsPreviewStackView.alignment = .fill
+        attachmentsPreviewStackView.spacing = 8
+        attachmentsPreviewStackView.translatesAutoresizingMaskIntoConstraints = false
+
         addButton.setImage(UIImage(systemName: "plus"), for: .normal)
         addButton.tintColor = UIColor.white.withAlphaComponent(0.85)
         addButton.backgroundColor = UIColor.white.withAlphaComponent(0.10)
         addButton.layer.cornerRadius = 16
+        addButton.addTarget(self, action: #selector(didTapAddAttachment), for: .touchUpInside)
         addButton.translatesAutoresizingMaskIntoConstraints = false
 
         textField.placeholder = "Message Local AI..."
@@ -177,8 +204,20 @@ final class ChatViewController: UIViewController {
         sendActivityIndicator.hidesWhenStopped = true
         sendActivityIndicator.translatesAutoresizingMaskIntoConstraints = false
 
-        inputContainer.addSubviews(addButton, textField, sendButton)
+        attachmentsPreviewScrollView.addSubview(attachmentsPreviewStackView)
+        inputContainer.addSubviews(attachmentsPreviewScrollView, addButton, textField, sendButton)
         sendButton.addSubview(sendActivityIndicator)
+
+        NSLayoutConstraint.activate([
+            attachmentsPreviewStackView.topAnchor.constraint(equalTo: attachmentsPreviewScrollView.topAnchor),
+            attachmentsPreviewStackView.leadingAnchor.constraint(equalTo: attachmentsPreviewScrollView.leadingAnchor),
+            attachmentsPreviewStackView.trailingAnchor.constraint(equalTo: attachmentsPreviewScrollView.trailingAnchor),
+            attachmentsPreviewStackView.bottomAnchor.constraint(equalTo: attachmentsPreviewScrollView.bottomAnchor),
+            attachmentsPreviewStackView.heightAnchor.constraint(equalTo: attachmentsPreviewScrollView.heightAnchor),
+        ])
+
+        refreshAttachmentPreviews()
+        updateComposerLayout()
     }
 
     private func configureSidebar() {
@@ -271,7 +310,9 @@ final class ChatViewController: UIViewController {
             inputContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
             inputContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -14),
             inputContainer.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -10),
-            inputContainer.heightAnchor.constraint(equalToConstant: 58),
+            attachmentsPreviewScrollView.topAnchor.constraint(equalTo: inputContainer.topAnchor, constant: 8),
+            attachmentsPreviewScrollView.leadingAnchor.constraint(equalTo: inputContainer.leadingAnchor, constant: 10),
+            attachmentsPreviewScrollView.trailingAnchor.constraint(equalTo: inputContainer.trailingAnchor, constant: -10),
 
             metricsLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             metricsLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
@@ -283,12 +324,13 @@ final class ChatViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: metricsLabel.topAnchor, constant: -8),
 
             addButton.leadingAnchor.constraint(equalTo: inputContainer.leadingAnchor, constant: 10),
-            addButton.centerYAnchor.constraint(equalTo: inputContainer.centerYAnchor),
+            addButton.topAnchor.constraint(equalTo: attachmentsPreviewScrollView.bottomAnchor, constant: 8),
+            addButton.bottomAnchor.constraint(equalTo: inputContainer.bottomAnchor, constant: -10),
             addButton.widthAnchor.constraint(equalToConstant: 32),
             addButton.heightAnchor.constraint(equalToConstant: 32),
 
             sendButton.trailingAnchor.constraint(equalTo: inputContainer.trailingAnchor, constant: -8),
-            sendButton.centerYAnchor.constraint(equalTo: inputContainer.centerYAnchor),
+            sendButton.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
             sendButton.widthAnchor.constraint(equalToConstant: 48),
             sendButton.heightAnchor.constraint(equalToConstant: 48),
             sendActivityIndicator.centerXAnchor.constraint(equalTo: sendButton.centerXAnchor),
@@ -296,7 +338,7 @@ final class ChatViewController: UIViewController {
 
             textField.leadingAnchor.constraint(equalTo: addButton.trailingAnchor, constant: 12),
             textField.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -10),
-            textField.centerYAnchor.constraint(equalTo: inputContainer.centerYAnchor),
+            textField.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
             textField.heightAnchor.constraint(equalToConstant: 32),
 
             dimView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -308,6 +350,11 @@ final class ChatViewController: UIViewController {
             sidePanel.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             sidePanel.widthAnchor.constraint(equalToConstant: panelWidth),
         ])
+
+        attachmentsPreviewHeightConstraint = attachmentsPreviewScrollView.heightAnchor.constraint(equalToConstant: 0)
+        attachmentsPreviewHeightConstraint?.isActive = true
+        inputContainerHeightConstraint = inputContainer.heightAnchor.constraint(equalToConstant: 58)
+        inputContainerHeightConstraint?.isActive = true
     }
 
     private func bindViewModel() {
@@ -319,7 +366,8 @@ final class ChatViewController: UIViewController {
         }
 
         viewModel.onModelUpdated = { [weak self] modelName in
-            self?.metricsLabel.text = "• Local • \(modelName)"
+            self?.currentModelName = modelName
+            self?.updateMetricsLabel()
             self?.titleLabel.text = modelName
         }
 
@@ -347,8 +395,31 @@ final class ChatViewController: UIViewController {
         guard !viewModel.isGenerating else { return }
         let text = textField.text ?? ""
         textField.text = nil
+        let attachments = pendingAttachments
+        pendingAttachments.removeAll()
         shouldAutoScrollToBottom = true
-        viewModel.sendMessage(text)
+        viewModel.sendMessage(text, attachments: attachments)
+    }
+
+    @objc
+    private func didTapAddAttachment() {
+        view.endEditing(true)
+        let sheet = UIAlertController(title: "Attach", message: nil, preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
+            self?.presentCamera()
+        })
+        sheet.addAction(UIAlertAction(title: "Choose from Library", style: .default) { [weak self] _ in
+            self?.presentPhotoLibrary()
+        })
+        sheet.addAction(UIAlertAction(title: "Attach Document", style: .default) { [weak self] _ in
+            self?.presentDocumentPicker()
+        })
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = addButton
+            popover.sourceRect = addButton.bounds
+        }
+        present(sheet, animated: true)
     }
 
     @objc
@@ -521,6 +592,147 @@ private extension ChatViewController {
         present(alert, animated: true)
     }
 
+    func updateMetricsLabel() {
+        if pendingAttachments.isEmpty {
+            metricsLabel.text = "• Local • \(currentModelName)"
+        } else {
+            metricsLabel.text = "• Local • \(currentModelName) • \(pendingAttachments.count) attachment(s)"
+        }
+    }
+
+    func refreshAttachmentPreviews() {
+        attachmentsPreviewStackView.arrangedSubviews.forEach {
+            attachmentsPreviewStackView.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
+
+        for attachment in pendingAttachments {
+            let preview = AttachmentPreviewView(
+                attachment: attachment,
+                removeAction: { [weak self] in
+                    self?.removePendingAttachment(id: attachment.id)
+                }
+            )
+            attachmentsPreviewStackView.addArrangedSubview(preview)
+        }
+    }
+
+    func updateComposerLayout() {
+        let hasAttachments = !pendingAttachments.isEmpty
+        attachmentsPreviewScrollView.isHidden = !hasAttachments
+        attachmentsPreviewHeightConstraint?.constant = hasAttachments ? 68 : 0
+        inputContainerHeightConstraint?.constant = hasAttachments ? 134 : 58
+        view.layoutIfNeeded()
+    }
+
+    func removePendingAttachment(id: UUID) {
+        pendingAttachments.removeAll { $0.id == id }
+    }
+
+    func attachmentsDirectoryURL() -> URL {
+        let fileManager = FileManager.default
+        let base = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first ?? fileManager.temporaryDirectory
+        let dir = base.appendingPathComponent("chat_attachments", isDirectory: true)
+        if !fileManager.fileExists(atPath: dir.path) {
+            try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+
+    func presentCamera() {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            let alert = UIAlertController(title: "Camera unavailable", message: "This device has no camera available.", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            return
+        }
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = self
+        picker.allowsEditing = false
+        present(picker, animated: true)
+    }
+
+    func presentPhotoLibrary() {
+        var configuration = PHPickerConfiguration()
+        configuration.filter = .images
+        configuration.selectionLimit = 5
+        let picker = PHPickerViewController(configuration: configuration)
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+
+    func presentDocumentPicker() {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.item], asCopy: true)
+        picker.delegate = self
+        picker.allowsMultipleSelection = true
+        present(picker, animated: true)
+    }
+
+    func makeImageAttachment(from image: UIImage, suggestedName: String?) -> MessageAttachment? {
+        guard let imageData = image.jpegData(compressionQuality: 0.92) else { return nil }
+        let id = UUID()
+        let fallbackName = "photo-\(id.uuidString.prefix(8)).jpg"
+        let fileName = suggestedName?.isEmpty == false ? suggestedName! : fallbackName
+        let fileURL = attachmentsDirectoryURL().appendingPathComponent("\(id.uuidString)-\(fileName)")
+        do {
+            try imageData.write(to: fileURL, options: .atomic)
+            return MessageAttachment(
+                id: id,
+                kind: .image,
+                fileName: fileName,
+                localFilePath: fileURL.path,
+                extractedText: nil
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    func makeDocumentAttachment(from sourceURL: URL) -> MessageAttachment? {
+        let id = UUID()
+        let fileName = sourceURL.lastPathComponent
+        let destinationURL = attachmentsDirectoryURL().appendingPathComponent("\(id.uuidString)-\(fileName)")
+        do {
+            let fileManager = FileManager.default
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                try fileManager.removeItem(at: destinationURL)
+            }
+            try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            let extractedText = extractDocumentText(from: destinationURL)
+            return MessageAttachment(
+                id: id,
+                kind: .document,
+                fileName: fileName,
+                localFilePath: destinationURL.path,
+                extractedText: extractedText
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    func extractDocumentText(from url: URL) -> String? {
+        if url.pathExtension.lowercased() == "pdf", let pdf = PDFDocument(url: url) {
+            return trimmedExtractedText(pdf.string)
+        }
+
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let text =
+            String(data: data, encoding: .utf8) ??
+            String(data: data, encoding: .utf16) ??
+            String(data: data, encoding: .unicode) ??
+            String(data: data, encoding: .ascii)
+        return trimmedExtractedText(text)
+    }
+
+    func trimmedExtractedText(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(12_000))
+    }
+
     func isNearBottom(threshold: CGFloat = 120) -> Bool {
         let visibleBottomY = tableView.contentOffset.y + tableView.bounds.height - tableView.adjustedContentInset.bottom
         let contentBottomY = tableView.contentSize.height
@@ -535,5 +747,132 @@ private extension ChatViewController {
             tableView.contentSize.height - tableView.bounds.height + tableView.adjustedContentInset.bottom
         )
         tableView.setContentOffset(CGPoint(x: 0, y: targetY), animated: animated)
+    }
+}
+
+private final class AttachmentPreviewView: UIView {
+    private let imageView = UIImageView()
+    private let titleLabel = UILabel()
+    private let closeButton = UIButton(type: .system)
+
+    init(attachment: MessageAttachment, removeAction: @escaping () -> Void) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        widthAnchor.constraint(equalToConstant: 72).isActive = true
+        heightAnchor.constraint(equalToConstant: 68).isActive = true
+        layer.cornerRadius = 12
+        layer.masksToBounds = true
+        backgroundColor = UIColor.white.withAlphaComponent(0.10)
+
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = UIFont.systemFont(ofSize: 10, weight: .semibold)
+        titleLabel.textColor = .white
+        titleLabel.numberOfLines = 2
+        titleLabel.textAlignment = .center
+        titleLabel.backgroundColor = UIColor.black.withAlphaComponent(0.35)
+
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        closeButton.tintColor = .white
+        closeButton.backgroundColor = UIColor.black.withAlphaComponent(0.35)
+        closeButton.layer.cornerRadius = 11
+        closeButton.addAction(UIAction { _ in removeAction() }, for: .touchUpInside)
+
+        addSubviews(imageView, titleLabel, closeButton)
+
+        NSLayoutConstraint.activate([
+            imageView.topAnchor.constraint(equalTo: topAnchor),
+            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            titleLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+
+            closeButton.topAnchor.constraint(equalTo: topAnchor, constant: 2),
+            closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
+            closeButton.widthAnchor.constraint(equalToConstant: 22),
+            closeButton.heightAnchor.constraint(equalToConstant: 22),
+        ])
+
+        switch attachment.kind {
+        case .image:
+            imageView.image = UIImage(contentsOfFile: attachment.localFilePath)
+            titleLabel.text = ""
+            titleLabel.isHidden = true
+        case .document:
+            imageView.image = UIImage(systemName: "doc.text.fill")
+            imageView.tintColor = UIColor.white.withAlphaComponent(0.90)
+            imageView.backgroundColor = UIColor(red: 0.10, green: 0.14, blue: 0.22, alpha: 0.95)
+            imageView.contentMode = .center
+            titleLabel.text = attachment.fileName
+            titleLabel.isHidden = false
+        }
+    }
+
+    required init?(coder: NSCoder) {
+        return nil
+    }
+}
+
+extension ChatViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        picker.dismiss(animated: true)
+    }
+
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+        defer { picker.dismiss(animated: true) }
+        guard let image = info[.originalImage] as? UIImage else { return }
+        if let attachment = makeImageAttachment(from: image, suggestedName: "camera.jpg") {
+            pendingAttachments.append(attachment)
+        } else {
+            viewModel.onError?("Could not attach camera image.")
+        }
+    }
+}
+
+extension ChatViewController: PHPickerViewControllerDelegate {
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        guard !results.isEmpty else { return }
+
+        let itemProviders = results.map(\.itemProvider)
+        for provider in itemProviders where provider.canLoadObject(ofClass: UIImage.self) {
+            provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
+                guard let self else { return }
+                guard let image = object as? UIImage else { return }
+                let attachment = self.makeImageAttachment(from: image, suggestedName: "library.jpg")
+                DispatchQueue.main.async {
+                    if let attachment {
+                        self.pendingAttachments.append(attachment)
+                    } else {
+                        self.viewModel.onError?("Could not attach one of the selected photos.")
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension ChatViewController: UIDocumentPickerDelegate {
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        for url in urls {
+            let hadAccess = url.startAccessingSecurityScopedResource()
+            let attachment = makeDocumentAttachment(from: url)
+            if hadAccess {
+                url.stopAccessingSecurityScopedResource()
+            }
+            if let attachment {
+                pendingAttachments.append(attachment)
+            } else {
+                viewModel.onError?("Could not attach document \(url.lastPathComponent).")
+            }
+        }
     }
 }

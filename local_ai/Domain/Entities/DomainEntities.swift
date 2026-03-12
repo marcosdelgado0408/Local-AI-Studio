@@ -74,6 +74,65 @@ struct Message: Equatable, Identifiable, Codable {
     let role: Role
     let content: String
     let createdAt: Date
+    let attachments: [MessageAttachment]
+
+    init(
+        id: UUID,
+        sessionID: UUID,
+        role: Role,
+        content: String,
+        createdAt: Date,
+        attachments: [MessageAttachment] = []
+    ) {
+        self.id = id
+        self.sessionID = sessionID
+        self.role = role
+        self.content = content
+        self.createdAt = createdAt
+        self.attachments = attachments
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case sessionID
+        case role
+        case content
+        case createdAt
+        case attachments
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        sessionID = try container.decode(UUID.self, forKey: .sessionID)
+        role = try container.decode(Role.self, forKey: .role)
+        content = try container.decode(String.self, forKey: .content)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        attachments = try container.decodeIfPresent([MessageAttachment].self, forKey: .attachments) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(sessionID, forKey: .sessionID)
+        try container.encode(role, forKey: .role)
+        try container.encode(content, forKey: .content)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(attachments, forKey: .attachments)
+    }
+}
+
+struct MessageAttachment: Equatable, Identifiable, Codable {
+    enum Kind: String, Codable {
+        case image
+        case document
+    }
+
+    let id: UUID
+    let kind: Kind
+    let fileName: String
+    let localFilePath: String
+    let extractedText: String?
 }
 
 struct GenerationConfig: Equatable, Codable {

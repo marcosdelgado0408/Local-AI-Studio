@@ -9,10 +9,10 @@ final class ModelRepositoryImpl: ModelRepository {
     private let seededModels: [LocalModel] = [
         LocalModel(
             id: "qwen3_5-0_8b-8bit",
-            displayName: "Qwen 3.5 0.8B 8-bit (MLX)",
+            displayName: "Qwen3.5 0.8B 8-bit (MLX, multimodal)",
             parameterSize: "0.8B",
             estimatedSizeInBytes: 2_100_000_000,
-            summary: "Qwen 3.5 0.8B quantized in 8-bit for better response quality on-device.",
+            summary: "Qwen 3.5 multimodal (image + text), 8-bit quantization for lower memory footprint.",
             supportsStreaming: true,
             minimumRAMInGB: 4,
             isCompatibleWithCurrentDevice: true,
@@ -20,10 +20,10 @@ final class ModelRepositoryImpl: ModelRepository {
         ),
         LocalModel(
             id: "qwen3_5-2b-6bit",
-            displayName: "Qwen 3.5 2B 6-bit (MLX)",
+            displayName: "Qwen3.5 2B 6-bit (MLX, multimodal)",
             parameterSize: "2B",
             estimatedSizeInBytes: 5_700_000_000,
-            summary: "Qwen 3.5 2B quantized in 6-bit for strong quality/performance balance on-device.",
+            summary: "Qwen 3.5 multimodal (image + text), 6-bit quantization for stronger quality.",
             supportsStreaming: true,
             minimumRAMInGB: 8,
             isCompatibleWithCurrentDevice: true,

@@ -7,8 +7,8 @@ struct SendMessageUseCase {
         self.inferenceRepository = inferenceRepository
     }
 
-    func execute(prompt: String, config: GenerationConfig) async throws -> String {
-        try await inferenceRepository.generate(prompt: prompt, config: config)
+    func execute(prompt: String, attachments: [MessageAttachment], config: GenerationConfig) async throws -> String {
+        try await inferenceRepository.generate(prompt: prompt, attachments: attachments, config: config)
     }
 }
 
@@ -19,8 +19,8 @@ struct StreamResponseUseCase {
         self.inferenceRepository = inferenceRepository
     }
 
-    func execute(prompt: String, config: GenerationConfig) -> AsyncThrowingStream<String, Error> {
-        inferenceRepository.stream(prompt: prompt, config: config)
+    func execute(prompt: String, attachments: [MessageAttachment], config: GenerationConfig) -> AsyncThrowingStream<String, Error> {
+        inferenceRepository.stream(prompt: prompt, attachments: attachments, config: config)
     }
 }
 

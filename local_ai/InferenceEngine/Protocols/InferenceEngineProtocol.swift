@@ -7,7 +7,7 @@ protocol ModelRuntimeProtocol {
 }
 
 protocol InferenceEngineProtocol: ModelRuntimeProtocol {
-    func generate(prompt: String, config: MLXGenerationConfig) async throws -> String
-    func stream(prompt: String, config: MLXGenerationConfig) -> AsyncThrowingStream<String, Error>
+    func generate(prompt: String, attachments: [MessageAttachment], config: MLXGenerationConfig) async throws -> String
+    func stream(prompt: String, attachments: [MessageAttachment], config: MLXGenerationConfig) -> AsyncThrowingStream<String, Error>
     func stopGeneration() async
 }
