@@ -26,6 +26,13 @@ final class ChatViewController: UIViewController {
     private let newChatButton = UIButton(type: .system)
     private var sidePanelLeadingConstraint: NSLayoutConstraint?
     private var isSidePanelOpen = false
+    private var shouldAutoScrollToBottom = true
+    private lazy var dismissKeyboardTapGesture: UITapGestureRecognizer = {
+        let gesture = UITapGestureRecognizer(target: self, action: #selector(didTapOutsideInput))
+        gesture.cancelsTouchesInView = false
+        gesture.delegate = self
+        return gesture
+    }()
 
     init(viewModel: ChatViewModel) {
         self.viewModel = viewModel
@@ -82,6 +89,11 @@ final class ChatViewController: UIViewController {
         configureInput()
         configureSidebar()
         configureLayout()
+        configureKeyboardDismissGesture()
+    }
+
+    private func configureKeyboardDismissGesture() {
+        view.addGestureRecognizer(dismissKeyboardTapGesture)
     }
 
     private func configureHeader() {
@@ -113,6 +125,7 @@ final class ChatViewController: UIViewController {
     private func configureMessagesTable() {
         tableView.register(MessageTableViewCell.self, forCellReuseIdentifier: MessageTableViewCell.reuseID)
         tableView.dataSource = self
+        tableView.delegate = self
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
         tableView.keyboardDismissMode = .interactive
@@ -301,10 +314,8 @@ final class ChatViewController: UIViewController {
         viewModel.onMessagesUpdated = { [weak self] _ in
             guard let self else { return }
             self.tableView.reloadData()
-            if !self.viewModel.messages.isEmpty {
-                let indexPath = IndexPath(row: self.viewModel.messages.count - 1, section: 0)
-                self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
-            }
+            guard self.shouldAutoScrollToBottom else { return }
+            self.scrollToBottom(animated: false)
         }
 
         viewModel.onModelUpdated = { [weak self] modelName in
@@ -336,6 +347,7 @@ final class ChatViewController: UIViewController {
         guard !viewModel.isGenerating else { return }
         let text = textField.text ?? ""
         textField.text = nil
+        shouldAutoScrollToBottom = true
         viewModel.sendMessage(text)
     }
 
@@ -348,6 +360,11 @@ final class ChatViewController: UIViewController {
     private func didTapNewChat() {
         viewModel.startNewChat()
         closeSidePanel()
+    }
+
+    @objc
+    private func didTapOutsideInput() {
+        view.endEditing(true)
     }
 
     @objc
@@ -451,11 +468,28 @@ extension ChatViewController: UITableViewDelegate {
             return UIMenu(title: "", children: [pinAction, renameAction, removeAction])
         }
     }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard scrollView === tableView else { return }
+        shouldAutoScrollToBottom = isNearBottom()
+    }
 }
 
 extension ChatViewController: UITextFieldDelegate {
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         didTapSend()
+        return true
+    }
+}
+
+extension ChatViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard gestureRecognizer === dismissKeyboardTapGesture else { return true }
+
+        // Keep interaction inside the composer untouched.
+        if let touchedView = touch.view, touchedView.isDescendant(of: inputContainer) {
+            return false
+        }
         return true
     }
 }
@@ -485,5 +519,21 @@ private extension ChatViewController {
             self?.viewModel.renameSession(session.id, title: newTitle)
         })
         present(alert, animated: true)
+    }
+
+    func isNearBottom(threshold: CGFloat = 120) -> Bool {
+        let visibleBottomY = tableView.contentOffset.y + tableView.bounds.height - tableView.adjustedContentInset.bottom
+        let contentBottomY = tableView.contentSize.height
+        return (contentBottomY - visibleBottomY) <= threshold
+    }
+
+    func scrollToBottom(animated: Bool) {
+        guard !viewModel.messages.isEmpty else { return }
+        tableView.layoutIfNeeded()
+        let targetY = max(
+            -tableView.adjustedContentInset.top,
+            tableView.contentSize.height - tableView.bounds.height + tableView.adjustedContentInset.bottom
+        )
+        tableView.setContentOffset(CGPoint(x: 0, y: targetY), animated: animated)
     }
 }

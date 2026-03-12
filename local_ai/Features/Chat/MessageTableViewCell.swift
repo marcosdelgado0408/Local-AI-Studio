@@ -132,39 +132,96 @@ final class MessageTableViewCell: UITableViewCell {
     }
 
     private func formattedMessage(_ rawText: String, color: UIColor) -> NSAttributedString {
-        let baseFont = UIFont.systemFont(ofSize: 17, weight: .regular)
-        let boldFont = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        let normalizedText = rawText
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
 
-        let mutable = NSMutableAttributedString(
-            string: rawText,
-            attributes: [
-                .font: baseFont,
-                .foregroundColor: color,
-            ]
-        )
+        let bodyFont = UIFont.systemFont(ofSize: 17, weight: .regular)
+        let h1Font = UIFont.systemFont(ofSize: 24, weight: .bold)
+        let h2Font = UIFont.systemFont(ofSize: 21, weight: .bold)
+        let h3Font = UIFont.systemFont(ofSize: 19, weight: .semibold)
+        let mutable = NSMutableAttributedString()
 
-        // Lightweight markdown support for **bold** markers.
-        let pattern = #"(?s)\*\*(.+?)\*\*"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
-            return mutable
-        }
+        let lines = normalizedText.components(separatedBy: "\n")
+        for (index, originalLine) in lines.enumerated() {
+            var line = originalLine
+            var font = bodyFont
+            var prefix = ""
 
-        let source = rawText as NSString
-        let matches = regex.matches(in: rawText, range: NSRange(location: 0, length: source.length))
-        for match in matches.reversed() {
-            let innerRange = match.range(at: 1)
-            guard innerRange.location != NSNotFound else { continue }
-            let innerText = source.substring(with: innerRange)
-            let replacement = NSAttributedString(
-                string: innerText,
+            if line.hasPrefix("### ") {
+                line = String(line.dropFirst(4))
+                font = h3Font
+            } else if line.hasPrefix("## ") {
+                line = String(line.dropFirst(3))
+                font = h2Font
+            } else if line.hasPrefix("# ") {
+                line = String(line.dropFirst(2))
+                font = h1Font
+            } else if line.hasPrefix("- ") || line.hasPrefix("* ") || line.hasPrefix("+ ") {
+                line = String(line.dropFirst(2))
+                prefix = "• "
+            }
+
+            let lineAttr = NSMutableAttributedString(
+                string: "\(prefix)\(line)",
                 attributes: [
-                    .font: boldFont,
+                    .font: font,
                     .foregroundColor: color,
                 ]
             )
-            mutable.replaceCharacters(in: match.range, with: replacement)
+            applyInlineMarkdown(to: lineAttr, color: color, fallbackFont: font)
+            mutable.append(lineAttr)
+
+            if index < lines.count - 1 {
+                mutable.append(NSAttributedString(string: "\n"))
+            }
         }
 
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = 2
+        mutable.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: mutable.length))
         return mutable
+    }
+
+    private func applyInlineMarkdown(to attributed: NSMutableAttributedString, color: UIColor, fallbackFont: UIFont) {
+        let boldFont = UIFont.systemFont(ofSize: fallbackFont.pointSize, weight: .semibold)
+        let italicDescriptor = fallbackFont.fontDescriptor.withSymbolicTraits(.traitItalic) ?? fallbackFont.fontDescriptor
+        let italicFont = UIFont(descriptor: italicDescriptor, size: fallbackFont.pointSize)
+
+        if let boldRegex = try? NSRegularExpression(pattern: #"\*\*(.+?)\*\*"#) {
+            let source = attributed.string as NSString
+            let matches = boldRegex.matches(in: attributed.string, range: NSRange(location: 0, length: source.length))
+            for match in matches.reversed() {
+                let innerRange = match.range(at: 1)
+                guard innerRange.location != NSNotFound else { continue }
+                let innerText = source.substring(with: innerRange)
+                let replacement = NSAttributedString(
+                    string: innerText,
+                    attributes: [
+                        .font: boldFont,
+                        .foregroundColor: color,
+                    ]
+                )
+                attributed.replaceCharacters(in: match.range, with: replacement)
+            }
+        }
+
+        if let italicRegex = try? NSRegularExpression(pattern: #"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)"#) {
+            let source = attributed.string as NSString
+            let matches = italicRegex.matches(in: attributed.string, range: NSRange(location: 0, length: source.length))
+            for match in matches.reversed() {
+                let innerRange = match.range(at: 1)
+                guard innerRange.location != NSNotFound else { continue }
+                let innerText = source.substring(with: innerRange)
+                let replacement = NSAttributedString(
+                    string: innerText,
+                    attributes: [
+                        .font: italicFont,
+                        .foregroundColor: color,
+                    ]
+                )
+                attributed.replaceCharacters(in: match.range, with: replacement)
+            }
+        }
     }
 }
