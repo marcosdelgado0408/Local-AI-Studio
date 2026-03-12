@@ -67,7 +67,6 @@ final class ChatViewModel {
 
     func load() {
         Task {
-            generationConfig = await settingsRepository.loadGenerationConfig()
             await refreshActiveModel()
 
             do {
@@ -103,6 +102,7 @@ final class ChatViewModel {
         guard let model = try? await modelRepository.activeModel() else {
             activeModelID = nil
             activeModelDisplayName = "No active model"
+            generationConfig = await settingsRepository.loadGenerationConfig(modelID: nil)
             return
         }
 
@@ -113,9 +113,11 @@ final class ChatViewModel {
             try await inferenceRepository.loadModel(model)
         } catch {
             onError?("Failed to load active model. Please re-download it from Models.")
+            generationConfig = await settingsRepository.loadGenerationConfig(modelID: nil)
             return
         }
         activeModelID = model.id
+        generationConfig = await settingsRepository.loadGenerationConfig(modelID: model.id)
     }
 
     func sendMessage(_ content: String, attachments: [MessageAttachment] = []) {

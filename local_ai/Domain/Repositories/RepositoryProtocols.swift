@@ -36,8 +36,8 @@ protocol InferenceRepository {
 }
 
 protocol SettingsRepository {
-    func loadGenerationConfig() async -> GenerationConfig
-    func updateGenerationConfig(_ config: GenerationConfig) async throws
+    func loadGenerationConfig(modelID: String?) async -> GenerationConfig
+    func updateGenerationConfig(_ config: GenerationConfig, modelID: String?) async throws
     func hasCompletedOnboarding() async -> Bool
     func setCompletedOnboarding(_ completed: Bool) async
 }

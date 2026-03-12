@@ -79,7 +79,7 @@ final class ChatViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
-        Task { await viewModel.refreshActiveModel() }
+        viewModel.load()
     }
 
     override func viewWillDisappear(_ animated: Bool) {

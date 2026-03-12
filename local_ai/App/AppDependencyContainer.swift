@@ -95,6 +95,7 @@ final class AppDependencyContainer {
     @MainActor
     private func makeSettingsViewController() -> UIViewController {
         let viewModel = SettingsViewModel(
+            modelRepository: modelRepository,
             settingsRepository: settingsRepository,
             chatRepository: chatRepository,
             updateGenerationSettingsUseCase: UpdateGenerationSettingsUseCase(repository: settingsRepository),

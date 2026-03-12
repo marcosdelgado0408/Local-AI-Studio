@@ -7,7 +7,7 @@ struct UpdateGenerationSettingsUseCase {
         self.repository = repository
     }
 
-    func execute(_ config: GenerationConfig) async throws {
-        try await repository.updateGenerationConfig(config)
+    func execute(_ config: GenerationConfig, modelID: String?) async throws {
+        try await repository.updateGenerationConfig(config, modelID: modelID)
     }
 }

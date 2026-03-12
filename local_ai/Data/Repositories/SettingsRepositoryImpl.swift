@@ -7,13 +7,13 @@ final class SettingsRepositoryImpl: SettingsRepository {
         self.store = store
     }
 
-    func loadGenerationConfig() async -> GenerationConfig {
-        store.loadGenerationConfig()
+    func loadGenerationConfig(modelID: String?) async -> GenerationConfig {
+        store.loadGenerationConfig(modelID: modelID)
     }
 
-    func updateGenerationConfig(_ config: GenerationConfig) async throws {
+    func updateGenerationConfig(_ config: GenerationConfig, modelID: String?) async throws {
         do {
-            try store.saveGenerationConfig(config)
+            try store.saveGenerationConfig(config, modelID: modelID)
         } catch {
             throw AppError.persistenceFailure
         }

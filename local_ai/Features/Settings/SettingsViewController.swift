@@ -21,6 +21,7 @@ final class SettingsViewController: UIViewController {
     private let topPValue = UILabel()
     private let maxTokensValue = UILabel()
     private let contextValue = UILabel()
+    private let modelScopeLabel = UILabel()
 
     private var currentConfig: GenerationConfig = .default
     private var currentStorageBytes: Int64 = 0
@@ -45,6 +46,7 @@ final class SettingsViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
+        viewModel.load()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -116,6 +118,11 @@ final class SettingsViewController: UIViewController {
         subtitleLabel.text = "DataStore Configuration"
         subtitleLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
         subtitleLabel.textColor = UIColor.white.withAlphaComponent(0.75)
+        subtitleLabel.numberOfLines = 0
+        modelScopeLabel.font = subtitleLabel.font
+        modelScopeLabel.textColor = subtitleLabel.textColor
+        modelScopeLabel.numberOfLines = 2
+        modelScopeLabel.text = "No active model selected"
 
         let statusDot = UIView()
         statusDot.backgroundColor = UIColor(red: 0.22, green: 0.83, blue: 0.59, alpha: 1)
@@ -132,9 +139,9 @@ final class SettingsViewController: UIViewController {
         statusHalo.translatesAutoresizingMaskIntoConstraints = false
         statusHalo.addSubview(statusDot)
 
-        let labels = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
+        let labels = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel, modelScopeLabel])
         labels.axis = .vertical
-        labels.spacing = 4
+        labels.spacing = 3
         labels.translatesAutoresizingMaskIntoConstraints = false
 
         container.addSubviews(labels, statusHalo)
@@ -277,13 +284,30 @@ final class SettingsViewController: UIViewController {
         sliders.axis = .vertical
         sliders.spacing = 0
         sliders.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(sliders)
+
+        let resetButton = UIButton(type: .system)
+        resetButton.setTitle("Reset to Defaults", for: .normal)
+        resetButton.setTitleColor(UIColor(red: 0.14, green: 0.67, blue: 1, alpha: 1), for: .normal)
+        resetButton.titleLabel?.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
+        resetButton.backgroundColor = UIColor.white.withAlphaComponent(0.06)
+        resetButton.layer.cornerRadius = 12
+        resetButton.layer.borderWidth = 1
+        resetButton.layer.borderColor = UIColor(red: 0.34, green: 0.49, blue: 0.95, alpha: 0.35).cgColor
+        resetButton.addTarget(self, action: #selector(didTapResetGeneration), for: .touchUpInside)
+        resetButton.translatesAutoresizingMaskIntoConstraints = false
+
+        card.addSubviews(sliders, resetButton)
 
         NSLayoutConstraint.activate([
             sliders.topAnchor.constraint(equalTo: card.topAnchor),
             sliders.leadingAnchor.constraint(equalTo: card.leadingAnchor),
             sliders.trailingAnchor.constraint(equalTo: card.trailingAnchor),
-            sliders.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            sliders.bottomAnchor.constraint(equalTo: resetButton.topAnchor, constant: -10),
+
+            resetButton.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            resetButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            resetButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -14),
+            resetButton.heightAnchor.constraint(equalToConstant: 38),
         ])
         return card
     }
@@ -425,6 +449,10 @@ final class SettingsViewController: UIViewController {
             self?.applyConfigToUI(config)
         }
 
+        viewModel.onActiveModelUpdated = { [weak self] modelText in
+            self?.modelScopeLabel.text = modelText
+        }
+
         viewModel.onStorageUpdated = { [weak self] text in
             self?.updateStorageUI(from: self?.currentStorageBytes ?? 0, fallbackText: text)
         }
@@ -496,6 +524,23 @@ final class SettingsViewController: UIViewController {
 
     @objc
     private func didTapClearHistory() {
-        viewModel.clearChatHistory()
+        let alert = UIAlertController(
+            title: "Clear chat history?",
+            message: "This will permanently delete all chats and messages from all sessions.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete All", style: .destructive, handler: { [weak self] _ in
+            self?.viewModel.clearChatHistory()
+        }))
+        present(alert, animated: true)
+    }
+
+    @objc
+    private func didTapResetGeneration() {
+        let defaults = GenerationConfig.default
+        currentConfig = defaults
+        applyConfigToUI(defaults)
+        viewModel.resetToDefaults()
     }
 }
