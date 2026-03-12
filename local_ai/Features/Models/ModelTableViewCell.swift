@@ -200,7 +200,7 @@ final class ModelTableViewCell: UITableViewCell {
 
         switch model.status {
         case .notDownloaded:
-            statusBadge.text = " AVAILABLE "
+            statusBadge.text = "AVAILABLE"
             statusLabel.text = "Available in cloud"
             progressView.isHidden = true
             progressPercentLabel.isHidden = true
@@ -211,7 +211,7 @@ final class ModelTableViewCell: UITableViewCell {
             primaryButton.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
             deleteButton.isHidden = true
         case .downloading:
-            statusBadge.text = " DOWNLOADING "
+            statusBadge.text = "DOWNLOADING"
             statusLabel.text = "Downloading..."
             progressView.isHidden = false
             progressPercentLabel.isHidden = false
@@ -222,7 +222,7 @@ final class ModelTableViewCell: UITableViewCell {
             primaryButton.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
             deleteButton.isHidden = true
         case .installed:
-            statusBadge.text = " INSTALLED "
+            statusBadge.text = "INSTALLED"
             statusLabel.text = "Installed locally"
             progressView.isHidden = true
             progressPercentLabel.isHidden = true
@@ -233,7 +233,7 @@ final class ModelTableViewCell: UITableViewCell {
             primaryButton.layer.borderColor = UIColor(red: 0.16, green: 0.62, blue: 1, alpha: 0.6).cgColor
             deleteButton.isHidden = false
         case .active:
-            statusBadge.text = " ACTIVE "
+            statusBadge.text = "ACTIVE"
             statusLabel.text = "Active engine"
             progressView.isHidden = true
             progressPercentLabel.isHidden = true

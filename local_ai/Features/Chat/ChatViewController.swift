@@ -428,15 +428,25 @@ final class ChatViewController: UIViewController {
         guard !isModelLoadingUI else { return }
         view.endEditing(true)
         let sheet = UIAlertController(title: "Attach", message: nil, preferredStyle: .actionSheet)
-        sheet.addAction(UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
+
+        let takePhoto = UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
             self?.presentCamera()
-        })
-        sheet.addAction(UIAlertAction(title: "Choose from Library", style: .default) { [weak self] _ in
+        }
+        takePhoto.setValue(UIImage(systemName: "camera.fill"), forKey: "image")
+
+        let chooseLibrary = UIAlertAction(title: "Choose from Library", style: .default) { [weak self] _ in
             self?.presentPhotoLibrary()
-        })
-        sheet.addAction(UIAlertAction(title: "Attach Document", style: .default) { [weak self] _ in
+        }
+        chooseLibrary.setValue(UIImage(systemName: "photo.on.rectangle.angled"), forKey: "image")
+
+        let attachDocument = UIAlertAction(title: "Attach Document", style: .default) { [weak self] _ in
             self?.presentDocumentPicker()
-        })
+        }
+        attachDocument.setValue(UIImage(systemName: "doc.fill"), forKey: "image")
+
+        sheet.addAction(takePhoto)
+        sheet.addAction(chooseLibrary)
+        sheet.addAction(attachDocument)
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         if let popover = sheet.popoverPresentationController {
             popover.sourceView = addButton
@@ -815,9 +825,9 @@ private extension ChatViewController {
 
     func updateMetricsLabel() {
         if pendingAttachments.isEmpty {
-            metricsLabel.text = "• Local • \(currentModelName)"
+            metricsLabel.text = "• Local"
         } else {
-            metricsLabel.text = "• Local • \(currentModelName) • \(pendingAttachments.count) attachment(s)"
+            metricsLabel.text = "• Local • \(pendingAttachments.count) attachment(s)"
         }
     }
 
