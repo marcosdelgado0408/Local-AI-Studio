@@ -29,12 +29,17 @@ final class ChatViewModel {
     private(set) var isGenerating: Bool = false {
         didSet { onGenerationStateUpdated?(isGenerating) }
     }
+    private(set) var isModelLoading: Bool = false {
+        didSet { onModelLoadingStateUpdated?(isModelLoading) }
+    }
+    private var generationWasStopped = false
 
     var onMessagesUpdated: (([Message]) -> Void)?
     var onModelUpdated: ((String) -> Void)?
     var onSessionsUpdated: (([ChatSession]) -> Void)?
     var onActiveSessionUpdated: ((UUID?) -> Void)?
     var onGenerationStateUpdated: ((Bool) -> Void)?
+    var onModelLoadingStateUpdated: ((Bool) -> Void)?
     var onError: ((String) -> Void)?
 
     private let activeSessionUserDefaultsKey = "chat.active.session.id"
@@ -102,6 +107,8 @@ final class ChatViewModel {
         }
 
         activeModelDisplayName = model.displayName
+        isModelLoading = true
+        defer { isModelLoading = false }
         do {
             try await inferenceRepository.loadModel(model)
         } catch {
@@ -143,6 +150,7 @@ final class ChatViewModel {
         )
         messages.append(assistantMessage)
         let assistantIndex = messages.count - 1
+        generationWasStopped = false
         isGenerating = true
 
         Task {
@@ -191,6 +199,20 @@ final class ChatViewModel {
                 try? await saveMessageUseCase.execute(assistantMessage)
                 await updateSessionMetadataAfterMessage(prompt: displayContent)
             } catch {
+                if generationWasStopped {
+                    if assistantMessage.content == "Thinking locally..." {
+                        assistantMessage = Message(
+                            id: assistantMessage.id,
+                            sessionID: assistantMessage.sessionID,
+                            role: assistantMessage.role,
+                            content: "Response stopped.",
+                            createdAt: assistantMessage.createdAt
+                        )
+                        messages[assistantIndex] = assistantMessage
+                    }
+                    try? await saveMessageUseCase.execute(assistantMessage)
+                    return
+                }
                 let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                 onError?("Failed to generate response.\n\(reason)")
                 assistantMessage = Message(
@@ -202,6 +224,14 @@ final class ChatViewModel {
                 )
                 messages[assistantIndex] = assistantMessage
             }
+        }
+    }
+
+    func stopGeneration() {
+        guard isGenerating else { return }
+        generationWasStopped = true
+        Task {
+            await inferenceRepository.stopGeneration()
         }
     }
 

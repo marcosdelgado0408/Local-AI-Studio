@@ -24,6 +24,14 @@ final class ChatViewController: UIViewController {
     private let textField = UITextField()
     private let sendButton = UIButton(type: .system)
     private let sendActivityIndicator = UIActivityIndicatorView(style: .medium)
+    private let modelLoadingOverlayView = UIView()
+    private let modelLoadingCardView = UIView()
+    private let modelLoadingTitleLabel = UILabel()
+    private let modelLoadingSubtitleLabel = UILabel()
+    private let modelLoadingSpinnerContainer = UIView()
+    private let modelLoadingGlowView = UIView()
+    private let modelLoadingTrackLayer = CAShapeLayer()
+    private let modelLoadingArcLayer = CAShapeLayer()
 
     private let dimView = UIView()
     private let sidePanel = UIView()
@@ -32,6 +40,7 @@ final class ChatViewController: UIViewController {
     private var sidePanelLeadingConstraint: NSLayoutConstraint?
     private var isSidePanelOpen = false
     private var shouldAutoScrollToBottom = true
+    private var isModelLoadingUI = false
     private var currentModelName: String
     private var pendingAttachments: [MessageAttachment] = [] {
         didSet {
@@ -81,6 +90,7 @@ final class ChatViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradientLayer.frame = view.bounds
+        layoutModelLoadingSpinnerLayers()
     }
 
     private func configureBackground() {
@@ -105,6 +115,7 @@ final class ChatViewController: UIViewController {
         configureInput()
         configureSidebar()
         configureLayout()
+        configureModelLoadingDialog()
         configureKeyboardDismissGesture()
     }
 
@@ -174,9 +185,12 @@ final class ChatViewController: UIViewController {
         attachmentsPreviewStackView.translatesAutoresizingMaskIntoConstraints = false
 
         addButton.setImage(UIImage(systemName: "plus"), for: .normal)
+        addButton.setPreferredSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold), forImageIn: .normal)
         addButton.tintColor = UIColor.white.withAlphaComponent(0.85)
         addButton.backgroundColor = UIColor.white.withAlphaComponent(0.10)
         addButton.layer.cornerRadius = 16
+        addButton.contentHorizontalAlignment = .center
+        addButton.contentVerticalAlignment = .center
         addButton.addTarget(self, action: #selector(didTapAddAttachment), for: .touchUpInside)
         addButton.translatesAutoresizingMaskIntoConstraints = false
 
@@ -324,8 +338,7 @@ final class ChatViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: metricsLabel.topAnchor, constant: -8),
 
             addButton.leadingAnchor.constraint(equalTo: inputContainer.leadingAnchor, constant: 10),
-            addButton.topAnchor.constraint(equalTo: attachmentsPreviewScrollView.bottomAnchor, constant: 8),
-            addButton.bottomAnchor.constraint(equalTo: inputContainer.bottomAnchor, constant: -10),
+            addButton.centerYAnchor.constraint(equalTo: textField.centerYAnchor, constant: -1),
             addButton.widthAnchor.constraint(equalToConstant: 32),
             addButton.heightAnchor.constraint(equalToConstant: 32),
 
@@ -338,7 +351,8 @@ final class ChatViewController: UIViewController {
 
             textField.leadingAnchor.constraint(equalTo: addButton.trailingAnchor, constant: 12),
             textField.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -10),
-            textField.centerYAnchor.constraint(equalTo: addButton.centerYAnchor),
+            textField.topAnchor.constraint(equalTo: attachmentsPreviewScrollView.bottomAnchor, constant: 8),
+            textField.bottomAnchor.constraint(equalTo: inputContainer.bottomAnchor, constant: -10),
             textField.heightAnchor.constraint(equalToConstant: 32),
 
             dimView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -388,11 +402,19 @@ final class ChatViewController: UIViewController {
         viewModel.onGenerationStateUpdated = { [weak self] generating in
             self?.applyGenerationState(generating)
         }
+
+        viewModel.onModelLoadingStateUpdated = { [weak self] loading in
+            self?.applyModelLoadingState(loading)
+        }
     }
 
     @objc
     private func didTapSend() {
-        guard !viewModel.isGenerating else { return }
+        guard !isModelLoadingUI else { return }
+        if viewModel.isGenerating {
+            viewModel.stopGeneration()
+            return
+        }
         let text = textField.text ?? ""
         textField.text = nil
         let attachments = pendingAttachments
@@ -403,6 +425,7 @@ final class ChatViewController: UIViewController {
 
     @objc
     private func didTapAddAttachment() {
+        guard !isModelLoadingUI else { return }
         view.endEditing(true)
         let sheet = UIAlertController(title: "Attach", message: nil, preferredStyle: .actionSheet)
         sheet.addAction(UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
@@ -567,15 +590,213 @@ extension ChatViewController: UIGestureRecognizerDelegate {
 
 private extension ChatViewController {
     func applyGenerationState(_ generating: Bool) {
-        sendButton.isEnabled = !generating
-        addButton.isEnabled = !generating
+        updateComposerInteractivity(isGenerating: generating)
         if generating {
-            sendButton.setImage(nil, for: .normal)
-            sendActivityIndicator.startAnimating()
+            sendActivityIndicator.stopAnimating()
+            sendButton.setImage(UIImage(systemName: "stop.fill"), for: .normal)
+            sendButton.backgroundColor = UIColor(red: 0.89, green: 0.27, blue: 0.28, alpha: 1.0)
+            sendButton.layer.shadowColor = UIColor(red: 0.89, green: 0.27, blue: 0.28, alpha: 1.0).cgColor
         } else {
             sendActivityIndicator.stopAnimating()
             sendButton.setImage(UIImage(systemName: "paperplane.fill"), for: .normal)
+            sendButton.backgroundColor = UIColor(red: 0.10, green: 0.52, blue: 1.0, alpha: 1)
+            sendButton.layer.shadowColor = UIColor(red: 0.10, green: 0.52, blue: 1.0, alpha: 1).cgColor
         }
+    }
+
+    func applyModelLoadingState(_ loading: Bool) {
+        isModelLoadingUI = loading
+        updateComposerInteractivity(isGenerating: viewModel.isGenerating)
+        if loading {
+            view.layoutIfNeeded()
+            layoutModelLoadingSpinnerLayers()
+            startModelLoadingAnimation()
+            modelLoadingOverlayView.alpha = 0
+            modelLoadingOverlayView.isHidden = false
+            UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseInOut]) {
+                self.modelLoadingOverlayView.alpha = 1
+            }
+        } else {
+            UIView.animate(withDuration: 0.18, delay: 0, options: [.curveEaseInOut]) {
+                self.modelLoadingOverlayView.alpha = 0
+            } completion: { _ in
+                self.modelLoadingOverlayView.isHidden = true
+                self.stopModelLoadingAnimation()
+            }
+        }
+    }
+
+    func updateComposerInteractivity(isGenerating: Bool) {
+        sendButton.isEnabled = !isModelLoadingUI
+        addButton.isEnabled = !isGenerating && !isModelLoadingUI
+        textField.isEnabled = !isModelLoadingUI
+    }
+
+    func configureModelLoadingDialog() {
+        modelLoadingOverlayView.backgroundColor = UIColor.black.withAlphaComponent(0.45)
+        modelLoadingOverlayView.alpha = 0
+        modelLoadingOverlayView.isHidden = true
+        modelLoadingOverlayView.translatesAutoresizingMaskIntoConstraints = false
+
+        modelLoadingCardView.backgroundColor = UIColor(red: 0.07, green: 0.09, blue: 0.16, alpha: 0.98)
+        modelLoadingCardView.layer.cornerRadius = 20
+        modelLoadingCardView.layer.borderWidth = 1
+        modelLoadingCardView.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
+        modelLoadingCardView.layer.shadowColor = UIColor.black.cgColor
+        modelLoadingCardView.layer.shadowOpacity = 0.35
+        modelLoadingCardView.layer.shadowRadius = 18
+        modelLoadingCardView.layer.shadowOffset = CGSize(width: 0, height: 8)
+        modelLoadingCardView.translatesAutoresizingMaskIntoConstraints = false
+
+        modelLoadingTitleLabel.text = "Loading Model"
+        modelLoadingTitleLabel.font = UIFont.systemFont(ofSize: 19, weight: .bold)
+        modelLoadingTitleLabel.textColor = .white
+        modelLoadingTitleLabel.textAlignment = .center
+        modelLoadingTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        modelLoadingSubtitleLabel.text = "Preparing local AI for multimodal chat..."
+        modelLoadingSubtitleLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        modelLoadingSubtitleLabel.textColor = UIColor.white.withAlphaComponent(0.75)
+        modelLoadingSubtitleLabel.textAlignment = .center
+        modelLoadingSubtitleLabel.numberOfLines = 0
+        modelLoadingSubtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        modelLoadingSpinnerContainer.translatesAutoresizingMaskIntoConstraints = false
+        modelLoadingSpinnerContainer.backgroundColor = .clear
+
+        modelLoadingGlowView.translatesAutoresizingMaskIntoConstraints = false
+        modelLoadingGlowView.backgroundColor = UIColor(red: 0.16, green: 0.62, blue: 1, alpha: 0.22)
+        modelLoadingGlowView.layer.cornerRadius = 30
+        modelLoadingGlowView.layer.shadowColor = UIColor(red: 0.16, green: 0.62, blue: 1, alpha: 1).cgColor
+        modelLoadingGlowView.layer.shadowOpacity = 0.8
+        modelLoadingGlowView.layer.shadowRadius = 14
+        modelLoadingGlowView.layer.shadowOffset = .zero
+
+        modelLoadingSpinnerContainer.addSubview(modelLoadingGlowView)
+        modelLoadingSpinnerContainer.layer.addSublayer(modelLoadingTrackLayer)
+        modelLoadingSpinnerContainer.layer.addSublayer(modelLoadingArcLayer)
+
+        modelLoadingTrackLayer.fillColor = UIColor.clear.cgColor
+        modelLoadingTrackLayer.strokeColor = UIColor.white.withAlphaComponent(0.30).cgColor
+        modelLoadingTrackLayer.lineWidth = 5
+        modelLoadingTrackLayer.lineCap = .round
+
+        modelLoadingArcLayer.fillColor = UIColor.clear.cgColor
+        modelLoadingArcLayer.strokeColor = UIColor(red: 0.16, green: 0.62, blue: 1, alpha: 1).cgColor
+        modelLoadingArcLayer.lineWidth = 5
+        modelLoadingArcLayer.lineCap = .round
+        modelLoadingArcLayer.strokeStart = 0.08
+        modelLoadingArcLayer.strokeEnd = 0.72
+        modelLoadingArcLayer.shadowColor = UIColor(red: 0.16, green: 0.62, blue: 1, alpha: 1).cgColor
+        modelLoadingArcLayer.shadowOpacity = 0.8
+        modelLoadingArcLayer.shadowRadius = 4
+        modelLoadingArcLayer.shadowOffset = .zero
+
+        modelLoadingCardView.addSubviews(modelLoadingTitleLabel, modelLoadingSpinnerContainer, modelLoadingSubtitleLabel)
+        modelLoadingOverlayView.addSubview(modelLoadingCardView)
+        view.addSubview(modelLoadingOverlayView)
+
+        NSLayoutConstraint.activate([
+            modelLoadingOverlayView.topAnchor.constraint(equalTo: view.topAnchor),
+            modelLoadingOverlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            modelLoadingOverlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            modelLoadingOverlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            modelLoadingCardView.centerXAnchor.constraint(equalTo: modelLoadingOverlayView.centerXAnchor),
+            modelLoadingCardView.centerYAnchor.constraint(equalTo: modelLoadingOverlayView.centerYAnchor),
+            modelLoadingCardView.leadingAnchor.constraint(greaterThanOrEqualTo: modelLoadingOverlayView.leadingAnchor, constant: 26),
+            modelLoadingCardView.trailingAnchor.constraint(lessThanOrEqualTo: modelLoadingOverlayView.trailingAnchor, constant: -26),
+            modelLoadingCardView.widthAnchor.constraint(equalToConstant: 290),
+
+            modelLoadingTitleLabel.topAnchor.constraint(equalTo: modelLoadingCardView.topAnchor, constant: 20),
+            modelLoadingTitleLabel.leadingAnchor.constraint(equalTo: modelLoadingCardView.leadingAnchor, constant: 16),
+            modelLoadingTitleLabel.trailingAnchor.constraint(equalTo: modelLoadingCardView.trailingAnchor, constant: -16),
+
+            modelLoadingSpinnerContainer.topAnchor.constraint(equalTo: modelLoadingTitleLabel.bottomAnchor, constant: 14),
+            modelLoadingSpinnerContainer.centerXAnchor.constraint(equalTo: modelLoadingCardView.centerXAnchor),
+            modelLoadingSpinnerContainer.widthAnchor.constraint(equalToConstant: 64),
+            modelLoadingSpinnerContainer.heightAnchor.constraint(equalToConstant: 64),
+
+            modelLoadingGlowView.centerXAnchor.constraint(equalTo: modelLoadingSpinnerContainer.centerXAnchor),
+            modelLoadingGlowView.centerYAnchor.constraint(equalTo: modelLoadingSpinnerContainer.centerYAnchor),
+            modelLoadingGlowView.widthAnchor.constraint(equalToConstant: 60),
+            modelLoadingGlowView.heightAnchor.constraint(equalToConstant: 60),
+
+            modelLoadingSubtitleLabel.topAnchor.constraint(equalTo: modelLoadingSpinnerContainer.bottomAnchor, constant: 14),
+            modelLoadingSubtitleLabel.leadingAnchor.constraint(equalTo: modelLoadingCardView.leadingAnchor, constant: 16),
+            modelLoadingSubtitleLabel.trailingAnchor.constraint(equalTo: modelLoadingCardView.trailingAnchor, constant: -16),
+            modelLoadingSubtitleLabel.bottomAnchor.constraint(equalTo: modelLoadingCardView.bottomAnchor, constant: -20),
+        ])
+
+        modelLoadingCardView.layoutIfNeeded()
+        layoutModelLoadingSpinnerLayers()
+    }
+
+    func layoutModelLoadingSpinnerLayers() {
+        guard modelLoadingSpinnerContainer.bounds.width > 0 else { return }
+        let bounds = modelLoadingSpinnerContainer.bounds.insetBy(dx: 8, dy: 8)
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let radius = min(bounds.width, bounds.height) / 2
+        let path = UIBezierPath(
+            arcCenter: center,
+            radius: radius,
+            startAngle: -.pi / 2,
+            endAngle: 1.5 * .pi,
+            clockwise: true
+        )
+        modelLoadingTrackLayer.frame = modelLoadingSpinnerContainer.bounds
+        modelLoadingArcLayer.frame = modelLoadingSpinnerContainer.bounds
+        modelLoadingTrackLayer.path = path.cgPath
+        modelLoadingArcLayer.path = path.cgPath
+    }
+
+    func startModelLoadingAnimation() {
+        modelLoadingSpinnerContainer.layer.removeAnimation(forKey: "spin")
+        modelLoadingArcLayer.removeAnimation(forKey: "head")
+        modelLoadingArcLayer.removeAnimation(forKey: "tail")
+        modelLoadingGlowView.layer.removeAnimation(forKey: "glowPulse")
+
+        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+        spin.fromValue = 0
+        spin.toValue = Double.pi * 2
+        spin.duration = 1.05
+        spin.repeatCount = .infinity
+        spin.timingFunction = CAMediaTimingFunction(name: .linear)
+        modelLoadingSpinnerContainer.layer.add(spin, forKey: "spin")
+
+        let head = CABasicAnimation(keyPath: "strokeEnd")
+        head.fromValue = 0.35
+        head.toValue = 0.92
+        head.duration = 0.75
+        head.autoreverses = true
+        head.repeatCount = .infinity
+        head.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        modelLoadingArcLayer.add(head, forKey: "head")
+
+        let tail = CABasicAnimation(keyPath: "strokeStart")
+        tail.fromValue = 0.02
+        tail.toValue = 0.46
+        tail.duration = 0.75
+        tail.autoreverses = true
+        tail.repeatCount = .infinity
+        tail.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        modelLoadingArcLayer.add(tail, forKey: "tail")
+
+        let glowPulse = CABasicAnimation(keyPath: "opacity")
+        glowPulse.fromValue = 0.28
+        glowPulse.toValue = 0.62
+        glowPulse.duration = 0.85
+        glowPulse.autoreverses = true
+        glowPulse.repeatCount = .infinity
+        glowPulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        modelLoadingGlowView.layer.add(glowPulse, forKey: "glowPulse")
+    }
+
+    func stopModelLoadingAnimation() {
+        modelLoadingSpinnerContainer.layer.removeAnimation(forKey: "spin")
+        modelLoadingArcLayer.removeAnimation(forKey: "head")
+        modelLoadingArcLayer.removeAnimation(forKey: "tail")
+        modelLoadingGlowView.layer.removeAnimation(forKey: "glowPulse")
     }
 
     func presentRenameAlert(for session: ChatSession) {
