@@ -8,11 +8,12 @@ final class ModelTableViewCell: UITableViewCell {
     var onInfoAction: (() -> Void)?
 
     private let cardView = UIView()
+    private let modelIconView = UIImageView()
     private let nameLabel = UILabel()
     private let statusBadge = UILabel()
     private let metadataChip = UILabel()
     private let quantChip = UILabel()
-    private let infoButton = UIButton(type: .infoLight)
+    private let infoButton = UIButton(type: .system)
     private let statusLabel = UILabel()
     private let progressPercentLabel = UILabel()
     private let progressView = UIProgressView(progressViewStyle: .default)
@@ -42,6 +43,11 @@ final class ModelTableViewCell: UITableViewCell {
         nameLabel.textColor = .white
         nameLabel.numberOfLines = 0
 
+        modelIconView.contentMode = .scaleAspectFit
+        modelIconView.translatesAutoresizingMaskIntoConstraints = false
+        modelIconView.tintColor = UIColor(red: 0.16, green: 0.62, blue: 1, alpha: 1)
+        modelIconView.isHidden = true
+
         statusBadge.font = UIFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
         statusBadge.textAlignment = .center
         statusBadge.textColor = UIColor(red: 0.16, green: 0.62, blue: 1, alpha: 1)
@@ -52,7 +58,14 @@ final class ModelTableViewCell: UITableViewCell {
         configureChip(metadataChip)
         configureChip(quantChip)
 
-        infoButton.tintColor = UIColor.white.withAlphaComponent(0.7)
+        let infoImage = UIImage(systemName: "info.circle")?
+            .withConfiguration(UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
+        infoButton.setImage(infoImage, for: .normal)
+        infoButton.tintColor = UIColor.white.withAlphaComponent(0.78)
+        infoButton.contentHorizontalAlignment = .center
+        infoButton.contentVerticalAlignment = .center
+        infoButton.setContentHuggingPriority(.required, for: .horizontal)
+        infoButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         infoButton.addTarget(self, action: #selector(didTapInfo), for: .touchUpInside)
 
         statusLabel.font = UIFont.systemFont(ofSize: 15, weight: .medium)
@@ -75,7 +88,12 @@ final class ModelTableViewCell: UITableViewCell {
         topRightStack.spacing = 8
         topRightStack.alignment = .center
 
-        let titleRow = UIStackView(arrangedSubviews: [nameLabel, topRightStack])
+        let titleLeftStack = UIStackView(arrangedSubviews: [modelIconView, nameLabel])
+        titleLeftStack.axis = .horizontal
+        titleLeftStack.spacing = 8
+        titleLeftStack.alignment = .center
+
+        let titleRow = UIStackView(arrangedSubviews: [titleLeftStack, topRightStack])
         titleRow.axis = .horizontal
         titleRow.alignment = .top
 
@@ -116,7 +134,10 @@ final class ModelTableViewCell: UITableViewCell {
             quantChip.heightAnchor.constraint(equalToConstant: 28),
             statusBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 74),
             statusBadge.heightAnchor.constraint(equalToConstant: 22),
+            modelIconView.widthAnchor.constraint(equalToConstant: 20),
+            modelIconView.heightAnchor.constraint(equalToConstant: 20),
             infoButton.widthAnchor.constraint(equalToConstant: 26),
+            infoButton.heightAnchor.constraint(equalToConstant: 26),
             progressView.heightAnchor.constraint(equalToConstant: 6),
             primaryButton.heightAnchor.constraint(equalToConstant: 44),
             deleteButton.heightAnchor.constraint(equalToConstant: 44),
@@ -158,7 +179,11 @@ final class ModelTableViewCell: UITableViewCell {
         formatter.countStyle = .file
         let size = formatter.string(fromByteCount: model.estimatedSizeInBytes)
 
+        primaryButton.isHidden = false
+        deleteButton.isHidden = false
+
         nameLabel.text = model.displayName
+        configureModelIcon(for: model)
         metadataChip.text = "  \(size)  "
         quantChip.text = "  \(quantizationTag(from: model.displayName))  "
         progressView.progress = Float(model.downloadProgress ?? 0)
@@ -212,11 +237,7 @@ final class ModelTableViewCell: UITableViewCell {
             statusLabel.text = "Active engine"
             progressView.isHidden = true
             progressPercentLabel.isHidden = true
-            primaryButton.setTitle("Settings", for: .normal)
-            primaryButton.isEnabled = false
-            primaryButton.setTitleColor(UIColor.white.withAlphaComponent(0.9), for: .normal)
-            primaryButton.backgroundColor = UIColor.white.withAlphaComponent(0.14)
-            primaryButton.layer.borderColor = UIColor.white.withAlphaComponent(0.2).cgColor
+            primaryButton.isHidden = true
             deleteButton.isHidden = false
         }
     }
@@ -233,6 +254,19 @@ final class ModelTableViewCell: UITableViewCell {
             return "Q8_0"
         }
         return "F16"
+    }
+
+    private func configureModelIcon(for model: LocalModel) {
+        let isQwen = model.displayName.lowercased().contains("qwen")
+            || model.id.lowercased().contains("qwen")
+
+        if isQwen, let qwenIcon = UIImage(named: "qwen_icon") {
+            modelIconView.image = qwenIcon.withRenderingMode(.alwaysOriginal)
+            modelIconView.isHidden = false
+        } else {
+            modelIconView.image = nil
+            modelIconView.isHidden = true
+        }
     }
 
     @objc

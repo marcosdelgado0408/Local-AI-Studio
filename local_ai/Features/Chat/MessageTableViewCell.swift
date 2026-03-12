@@ -5,6 +5,7 @@ final class MessageTableViewCell: UITableViewCell {
 
     private let nameLabel = UILabel()
     private let avatarView = UIView()
+    private let avatarImageView = UIImageView()
     private let bubbleView = UIView()
     private let messageLabel = UILabel()
 
@@ -36,6 +37,11 @@ final class MessageTableViewCell: UITableViewCell {
         avatarView.layer.borderWidth = 1
         avatarView.layer.borderColor = UIColor.white.withAlphaComponent(0.15).cgColor
         avatarView.backgroundColor = UIColor(red: 0.40, green: 0.83, blue: 1.0, alpha: 1)
+        avatarView.clipsToBounds = true
+
+        avatarImageView.contentMode = .scaleAspectFit
+        avatarImageView.translatesAutoresizingMaskIntoConstraints = false
+        avatarImageView.isHidden = true
 
         bubbleView.layer.cornerRadius = 22
         bubbleView.layer.borderWidth = 1
@@ -46,6 +52,7 @@ final class MessageTableViewCell: UITableViewCell {
         messageLabel.numberOfLines = 0
 
         contentView.addSubviews(nameLabel, avatarView, bubbleView)
+        avatarView.addSubview(avatarImageView)
         bubbleView.addSubview(messageLabel)
 
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -77,6 +84,11 @@ final class MessageTableViewCell: UITableViewCell {
             messageLabel.leadingAnchor.constraint(equalTo: bubbleView.leadingAnchor, constant: 14),
             messageLabel.trailingAnchor.constraint(equalTo: bubbleView.trailingAnchor, constant: -14),
             messageLabel.bottomAnchor.constraint(equalTo: bubbleView.bottomAnchor, constant: -14),
+
+            avatarImageView.centerXAnchor.constraint(equalTo: avatarView.centerXAnchor),
+            avatarImageView.centerYAnchor.constraint(equalTo: avatarView.centerYAnchor),
+            avatarImageView.widthAnchor.constraint(equalToConstant: 22),
+            avatarImageView.heightAnchor.constraint(equalToConstant: 22),
         ])
     }
 
@@ -122,12 +134,28 @@ final class MessageTableViewCell: UITableViewCell {
                 color: UIColor.white.withAlphaComponent(0.90)
             )
 
-            avatarView.backgroundColor = UIColor(red: 0.34, green: 0.83, blue: 1.0, alpha: 1)
+            configureAssistantAvatar(modelName: modelName)
 
             assistantNameTop?.isActive = true
             bubbleTopToName?.isActive = true
             assistantLeadingConstraint?.isActive = true
             assistantTrailingMaxConstraint?.isActive = true
+        }
+    }
+
+    private func configureAssistantAvatar(modelName: String) {
+        let isQwen = modelName.lowercased().contains("qwen")
+
+        if isQwen, let qwenIcon = UIImage(named: "qwen_icon") {
+            avatarImageView.image = qwenIcon.withRenderingMode(.alwaysOriginal)
+            avatarImageView.isHidden = false
+            avatarView.backgroundColor = UIColor.white.withAlphaComponent(0.08)
+            avatarView.layer.borderColor = UIColor.white.withAlphaComponent(0.18).cgColor
+        } else {
+            avatarImageView.image = nil
+            avatarImageView.isHidden = true
+            avatarView.backgroundColor = UIColor(red: 0.34, green: 0.83, blue: 1.0, alpha: 1)
+            avatarView.layer.borderColor = UIColor.white.withAlphaComponent(0.15).cgColor
         }
     }
 

@@ -128,7 +128,7 @@ final class ChatViewController: UIViewController {
         menuButton.tintColor = UIColor.white.withAlphaComponent(0.9)
         menuButton.addTarget(self, action: #selector(didTapMenu), for: .touchUpInside)
 
-        titleLabel.text = viewModel.activeModelDisplayName
+        titleLabel.text = shortModelName(from: viewModel.activeModelDisplayName)
         titleLabel.font = UIFont.systemFont(ofSize: 20, weight: .bold)
         titleLabel.textColor = .white
         titleLabel.textAlignment = .center
@@ -313,12 +313,12 @@ final class ChatViewController: UIViewController {
             rightHeaderSpacer.widthAnchor.constraint(equalTo: menuButton.widthAnchor),
             rightHeaderSpacer.heightAnchor.constraint(equalTo: menuButton.heightAnchor),
 
-            titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor, constant: 16),
+            titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             titleLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 2),
             titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: menuButton.trailingAnchor, constant: 8),
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: rightHeaderSpacer.leadingAnchor, constant: -8),
 
-            statusLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor, constant: 16),
+            statusLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             statusLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
 
             inputContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
@@ -382,7 +382,7 @@ final class ChatViewController: UIViewController {
         viewModel.onModelUpdated = { [weak self] modelName in
             self?.currentModelName = modelName
             self?.updateMetricsLabel()
-            self?.titleLabel.text = modelName
+            self?.titleLabel.text = self?.shortModelName(from: modelName)
         }
 
         viewModel.onSessionsUpdated = { [weak self] _ in
@@ -819,6 +819,20 @@ private extension ChatViewController {
         } else {
             metricsLabel.text = "• Local • \(currentModelName) • \(pendingAttachments.count) attachment(s)"
         }
+    }
+
+    private func shortModelName(from raw: String) -> String {
+        let lower = raw.lowercased()
+        if lower.contains("qwen") {
+            if lower.contains("0.8b") {
+                return "Qwen 3.5 0.8B"
+            }
+            if lower.contains("2b") {
+                return "Qwen 3.5 2B"
+            }
+            return "Qwen 3.5"
+        }
+        return raw
     }
 
     func refreshAttachmentPreviews() {
